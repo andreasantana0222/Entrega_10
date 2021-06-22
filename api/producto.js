@@ -18,7 +18,7 @@ class Productos {
    }
 
    save(objeto){
-     console.log(objeto);
+     console.log('save');
      const productos =  this.read();
 
      let id=productos.length+1;
