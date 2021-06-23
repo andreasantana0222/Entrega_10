@@ -1,25 +1,15 @@
 const express = require('express');
-// Inicializamos express
-const app = express();
-// Le pasamos la constante que creamos app
-const http = require('http').Server(app);
-// Le pasamos la constante que creamos http
-// se trabaja con http y no con express
-const io = require('socket.io')(http);
-
-// Declaramos la api que tiene la Clase de acceso al archivo
-const productos = require('./api/producto');
-
-// Inicializamos la librería handlebars
+const controller = require('./api/productos');
 const handlebars = require('express-handlebars');
 
+//libreria FS
+const fs=require ('fs');
 
 
 // creo una app de tipo express
-//const app = express();
+const app = express();
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
-
 
 
 //establecemos la configuración de handlebars
@@ -34,58 +24,169 @@ app.engine(
 );
 
 app.set("view engine", "hbs");
-app.set("views", __dirname + '/views');
+app.set("views", "./views");
 
 
 
 
-
-// importo las rutas y las uso con el prefijo /api
-const productosRouter = require('./routes/productos');
-app.use('/api', productosRouter);
+// incorporo el router
+const routerProducto = express.Router();
+app.use('/api', routerProducto);
 
 // indico donde estan los archivos estaticos
 app.use(express.static('public'));
 
-/// GET api/-------------------------------------------------
-// envio a renderizar el html en la raiz de la misma
-app.get('/', (req, res) => {
-    res.sendFile('index.html',{root:__dirname});
+/// GET api/productos/listar-------------------------------------------------
+routerProducto.get('/productos/listar',(req, res) => {
+  try {
+    //productos=controller.read();
+    //console.log(productos.length);
+
+    if(controller.read().length=0){
+      res.type('json').send(JSON.stringify({error : 'no hay productos cargados'}, null, 2) + '\n');
+    }else{
+      res.type('json').send(JSON.stringify(controller.read(), null, 2) + '\n');
+    }
+
+
+    } catch (e) {
+    console.error({error : 'no hay productos cargados'})
+    res.status(500).send(JSON.stringify({error : 'no hay productos cargados'}));
+
+  }
 });
 
 
 
-/// obtengo el puerto del enviroment o lo seteo por defecto
-const PORT = process.env.PORT || 8080;
+// GET api/mensajes/:id-------------------------------------------------
+routerProducto.get('/mensajes/:id', async (req, res) => {
+
+  try {
+
+    if (req.params.id>controller.read().length || req.params.id<1){
+      res.type('json').send(JSON.stringify({error : 'producto no encontrado'}, null, 2) + '\n');
+    } else{
+      let id=req.params.id-1;
+      res.type('json').send(JSON.stringify(controller.read()[id], null, 2) + '\n');
+    }
+  } catch (e) {
+    console.error({error : 'producto no encontrado'})
+    res.status(500).send(JSON.stringify({error : 'producto no encontrado'}));
+  }
+});
+
+// POST /api/productos/guardar-------------------------------------------------
+routerProducto.post('/productos/guardar', async (req, res) => {
+
+  try {
+    let objeto=req.body;
+    //return res.type('json').send(JSON.stringify(controller.save(objeto), null, 2) + '\n');
+    controller.save(objeto);
+    res.redirect('/api/productos/cargar');
+
+  } catch (e) {
+    console.error({error : 'error al guardar'})
+    res.status(500).send(JSON.stringify({error : 'error al guardar'}));
+  }
+
+});
+
+
+// PUT /api/productos/actualizar/:id-------------------------------------------------
+routerProducto.put('/productos/actualizar/:id', async (req, res) => {
+
+  try {
+
+    if (req.params.id>controller.read().length || req.params.id<1){
+      res.type('json').send(JSON.stringify({error : 'producto no encontrado'}, null, 2) + '\n');
+    } else{
+      let id=req.params.id;
+      let objeto=req.body;
+      return res.type('json').send(JSON.stringify(controller.update(id,objeto), null, 2) + '\n');
+    }
+  } catch (e) {
+    console.error({error : 'producto no encontrado'})
+    res.status(500).send(JSON.stringify({error : 'producto no encontrado'}));
+  }
+  });
+
+  // DELETE /api/productos/borrar/:id-------------------------------------------------
+  routerProducto.delete('/productos/borrar/:id', async (req, res) => {
+
+    try {
+      //console.log(`id ${req.params.id} `);
+      //if (req.params.id>controller.read().length || req.params.id<1){
+      if (req.params.id<1){
+        res.type('json').send(JSON.stringify({error : 'producto no encontrado'}, null, 2) + '\n');
+      } else{
+        let id=req.params.id;
+        //console.log(id);
+        return res.type('json').send(JSON.stringify(controller.delete(id), null, 2) + '\n');
+      }
+    } catch (e) {
+      console.error({error : 'producto no encontrado'})
+      res.status(500).send(JSON.stringify({error : 'producto no encontrado'}));
+    }
+    });
+
+
+/* ------------------------------------------------------------------*/
+/* handlebars*/
+
+/// GET api/productos/vista-------------------------------------------------
+routerProducto.get('/productos/vista',(req, res) => {
+  try {
+
+    if(controller.read().length=0){
+      res.type('json').send(JSON.stringify({error : 'no hay productos cargados'}, null, 2) + '\n');
+    }else{
+      //res.type('json').send(JSON.stringify(controller.read(), null, 2) + '\n');
+      let data=controller.read();
+
+        res.render('vista', { hayProductos : true, productos:data});
+    }
+
+
+    } catch (e) {
+    console.error({error : 'no hay productos cargados'})
+    res.status(500).send(JSON.stringify({error : 'no hay productos cargados'}));
+
+  }
+});
+
+
+// POST /api/productos/cargar-------------------------------------------------
+routerProducto.get('/productos/cargar', async (req, res) => {
+
+  try {
+    //let objeto=req.body;
+    //return res.type('json').send(JSON.stringify(controller.save(objeto), null, 2) + '\n');
+      res.render('formulario');
+
+
+  } catch (e) {
+    console.error({error : 'error al guardar'})
+    res.status(500).send(JSON.stringify({error : 'error al guardar'}));
+  }
+
+});
+
+
+/* ------------------------------------------------------------------*/
+/* FIN handlebars*/
 
 // pongo a escuchar el servidor en el puerto indicado
-const server = http.listen(PORT, () => {
-    console.log(`servidor escuchando en http://localhost:${PORT}`);
+const puerto = 8080;
+
+const server = app.listen(puerto, () => {
+    console.log(`servidor escuchando en http://localhost:${puerto}`);
 });
-
-// SOCKET
-// cuando se realice la conexion, se ejecutara una sola vez
-io.on('connection', async socket => {
-    console.log('Nuevo cliente conectado!');
-    /* Envio los mensajes al cliente que se conectó */
-    socket.emit('productos', productos.read());
-
-    /* Escucho los mensajes enviado por el cliente y se los propago a todos */
-    socket.on('update', data => {
-      socket.emit('productos', productos.read());
-      console.log(productos.read());
-        io.sockets.emit('productos', productos.read());
-    });
-});
-
-
 
 // en caso de error, avisar
-http.on('error', error => {
+server.on('error', error => {
     console.log('error en el servidor:', error);
     res.status(500).send({error : 'ocurrió un error'});
 });
-
 
 //manejo de errores
 app.use(function(err,req,res,next){
